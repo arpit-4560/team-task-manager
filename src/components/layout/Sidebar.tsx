@@ -1,7 +1,7 @@
 import { NavLink } from '../ui/NavLink';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { LayoutDashboard, FolderKanban, CheckSquare, LogOut, User, Menu, X, BarChart2, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, CheckSquare, LogOut, User, Menu, X, BarChart2, Sun, Moon, Home } from 'lucide-react';
 import { useState } from 'react';
 import NotificationsBell from '../ui/NotificationsBell';
 import GlobalSearch from '../ui/GlobalSearch';
@@ -18,6 +18,7 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
+    { id: 'welcome', label: 'Home', icon: Home },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'projects', label: 'Projects', icon: FolderKanban },
     { id: 'my-tasks', label: 'My Tasks', icon: CheckSquare },
