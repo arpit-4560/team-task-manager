@@ -1,8 +1,10 @@
 import { NavLink } from '../ui/NavLink';
 import { useAuth } from '../../contexts/AuthContext';
-import { LayoutDashboard, FolderKanban, CheckSquare, LogOut, User, Menu, X, BarChart2 } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
+import { LayoutDashboard, FolderKanban, CheckSquare, LogOut, User, Menu, X, BarChart2, Sun, Moon } from 'lucide-react';
 import { useState } from 'react';
 import NotificationsBell from '../ui/NotificationsBell';
+import GlobalSearch from '../ui/GlobalSearch';
 
 interface SidebarProps {
   currentView: string;
@@ -11,6 +13,8 @@ interface SidebarProps {
 
 export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
   const { profile, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const dark = theme === 'dark';
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
@@ -27,14 +31,25 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
+      <div className={`flex items-center justify-between px-6 py-5 border-b ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
             <CheckSquare className="w-5 h-5 text-white" />
           </div>
-          <span className="text-lg font-bold text-white tracking-tight">TaskFlow</span>
+          <span className={`text-lg font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>TaskFlow</span>
         </div>
-        <NotificationsBell onNavigate={onNavigate} />
+        <div className="flex items-center gap-1">
+          <button onClick={toggleTheme}
+            className={`p-1.5 rounded-lg transition ${dark ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}>
+            {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <NotificationsBell onNavigate={onNavigate} />
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className={`px-3 py-3 border-b ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
+        <GlobalSearch onNavigate={onNavigate} />
       </div>
 
       {/* Nav */}

@@ -78,45 +78,59 @@ export default function ProjectDetail({ projectId, onBack }: ProjectDetailProps)
   async function inviteMember(e: React.FormEvent) {
     e.preventDefault();
     setInviteError('');
-    setInviting(true);
 
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('id', inviteEmail)
-      .maybeSingle();
-
-    // Try by auth user email via RPC — fallback: search profiles by joining auth
-    // Since we can't query by email directly, we'll use a workaround
-    // Look up user by checking if email matches any auth.users (via profiles id)
-    // We'll use a simple approach: search profiles where the user's email stored in auth
-    const { data: users } = await supabase.auth.admin?.listUsers?.() ?? { data: null };
-
-    // Alternative: use the email as a direct lookup — instruct admin to use user ID or email
-    // For now, let's do it via a custom lookup approach
-    const { data: authUser } = await (supabase.rpc as any)('get_user_id_by_email', { email: inviteEmail }).maybeSingle().catch(() => ({ data: null }));
-
-    let userId: string | null = authUser?.id ?? null;
-
-    if (!userId) {
-      setInviteError('User not found. Make sure they have signed up.');
-      setInviting(false);
+    if (!inviteEmail.trim()) {
+      setInviteError('Please enter an email address.');
       return;
     }
 
-    const { error } = await supabase.from('project_members').insert({
-      project_id: projectId,
-      user_id: userId,
-      role: inviteRole,
-    });
+    setInviting(true);
 
-    if (error) {
-      setInviteError(error.code === '23505' ? 'User is already a member.' : error.message);
-    } else {
+    try {
+      // Look up profile by email using the profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('email', inviteEmail.trim().toLowerCase())
+        .maybeSingle();
+
+      if (profileError) throw new Error(profileError.message);
+
+      if (!profileData) {
+        setInviteError('User not found. Make sure they have signed up first.');
+        setInviting(false);
+        return;
+      }
+
+      // Check if already a member
+      const { data: existing } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('user_id', profileData.id)
+        .maybeSingle();
+
+      if (existing) {
+        setInviteError('This user is already a member of this project.');
+        setInviting(false);
+        return;
+      }
+
+      const { error: insertError } = await supabase.from('project_members').insert({
+        project_id: projectId,
+        user_id: profileData.id,
+        role: inviteRole,
+      });
+
+      if (insertError) throw new Error(insertError.message);
+
       setInviteEmail('');
       setShowAddMember(false);
       loadMembers();
+    } catch (err: any) {
+      setInviteError(err.message || 'Something went wrong. Please try again.');
     }
+
     setInviting(false);
   }
 
