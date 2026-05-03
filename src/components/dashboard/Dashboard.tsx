@@ -33,6 +33,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   useEffect(() => {
     if (!user) return;
     loadDashboard();
+
+    // Real-time: refresh dashboard when any task changes
+    const channel = supabase
+      .channel('dashboard-tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        loadDashboard();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   async function loadDashboard() {

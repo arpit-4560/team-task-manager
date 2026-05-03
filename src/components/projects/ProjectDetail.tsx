@@ -6,7 +6,8 @@ import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
 import TaskCard from '../tasks/TaskCard';
 import CreateTaskModal from '../tasks/CreateTaskModal';
-import type { Project, ProjectMemberWithProfile, Task, Profile, TaskStatus } from '../../lib/database.types';
+import AIInsights from '../ai/AIInsights';
+import type { Project, ProjectMemberWithProfile, Task, Profile, TaskStatus, MemberRole } from '../../lib/database.types';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -24,14 +25,14 @@ export default function ProjectDetail({ projectId, onBack }: ProjectDetailProps)
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMemberWithProfile[]>([]);
   const [tasks, setTasks] = useState<(Task & { assignee: Profile | null })[]>([]);
-  const [myRole, setMyRole] = useState<'admin' | 'member' | null>(null);
+  const [myRole, setMyRole] = useState<MemberRole | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'board' | 'members'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'members' | 'insights'>('board');
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
+  const [inviteRole, setInviteRole] = useState<MemberRole>('member');
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [editName, setEditName] = useState('');
@@ -79,15 +80,30 @@ export default function ProjectDetail({ projectId, onBack }: ProjectDetailProps)
     setInviteError('');
     setInviting(true);
 
-const rpcResult = await (supabase.rpc as any)('get_user_id_by_email', { email: inviteEmail });
-const userId = rpcResult?.data;
-const rpcError = rpcResult?.error;
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', inviteEmail)
+      .maybeSingle();
 
-if (rpcError || !userId) {
-  setInviteError('User not found. Make sure they have signed up.');
-  setInviting(false);
-  return;
-}
+    // Try by auth user email via RPC — fallback: search profiles by joining auth
+    // Since we can't query by email directly, we'll use a workaround
+    // Look up user by checking if email matches any auth.users (via profiles id)
+    // We'll use a simple approach: search profiles where the user's email stored in auth
+    const { data: users } = await supabase.auth.admin?.listUsers?.() ?? { data: null };
+
+    // Alternative: use the email as a direct lookup — instruct admin to use user ID or email
+    // For now, let's do it via a custom lookup approach
+    const { data: authUser } = await (supabase.rpc as any)('get_user_id_by_email', { email: inviteEmail }).maybeSingle().catch(() => ({ data: null }));
+
+    let userId: string | null = authUser?.id ?? null;
+
+    if (!userId) {
+      setInviteError('User not found. Make sure they have signed up.');
+      setInviting(false);
+      return;
+    }
+
     const { error } = await supabase.from('project_members').insert({
       project_id: projectId,
       user_id: userId,
@@ -109,7 +125,7 @@ if (rpcError || !userId) {
     loadMembers();
   }
 
-  async function updateMemberRole(memberId: string, role: 'admin' | 'member') {
+  async function updateMemberRole(memberId: string, role: MemberRole) {
     await supabase.from('project_members').update({ role }).eq('id', memberId);
     loadMembers();
   }
@@ -186,12 +202,14 @@ if (rpcError || !userId) {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-800/50 p-1 rounded-lg w-fit">
-        {(['board', 'members'] as const).map(tab => (
+        {(['board', 'members', 'insights'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition capitalize ${
               activeTab === tab ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
             }`}>
-            {tab === 'members' ? <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" />Members ({members.length})</span> : 'Board'}
+            {tab === 'members'
+              ? <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" />Members ({members.length})</span>
+              : tab === 'insights' ? '✨ AI Insights' : 'Board'}
           </button>
         ))}
       </div>
@@ -262,10 +280,11 @@ if (rpcError || !userId) {
                     {myRole === 'admin' && !isMe ? (
                       <select
                         value={member.role}
-                        onChange={e => updateMemberRole(member.id, e.target.value as 'admin' | 'member')}
+                        onChange={e => updateMemberRole(member.id, e.target.value as MemberRole)}
                         className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500"
                       >
                         <option value="member">Member</option>
+                        <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
                       </select>
                     ) : (
@@ -283,6 +302,20 @@ if (rpcError || !userId) {
             })}
           </div>
         </div>
+      )}
+
+      {/* AI Insights Tab */}
+      {activeTab === 'insights' && (
+        <AIInsights
+          projectName={project.name}
+          tasks={tasks.map(t => ({
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            due_date: t.due_date,
+            assignee: (t.assignee as any)?.full_name ?? null,
+          }))}
+        />
       )}
 
       {/* Create Task Modal */}
@@ -314,11 +347,12 @@ if (rpcError || !userId) {
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Role</label>
             <select
               value={inviteRole}
-              onChange={e => setInviteRole(e.target.value as 'admin' | 'member')}
+              onChange={e => setInviteRole(e.target.value as MemberRole)}
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="member">Member — can view and update tasks</option>
+              <option value="manager">Manager — can create tasks and manage members</option>
+              <option value="admin">Admin — full access including settings</option>
             </select>
           </div>
           {inviteError && <p className="text-red-400 text-sm">{inviteError}</p>}

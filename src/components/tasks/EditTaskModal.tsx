@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
 import Modal from '../ui/Modal';
+import TaskAttachments from './TaskAttachments';
 import type { Task, Profile, ProjectMemberWithProfile, TaskPriority, TaskStatus } from '../../lib/database.types';
 
 interface EditTaskModalProps {
@@ -96,6 +97,10 @@ export default function EditTaskModal({ task, members, onClose, onUpdated }: Edi
           </div>
         </div>
         {error && <p className="text-red-400 text-sm">{error}</p>}
+
+        {/* File Attachments */}
+        <TaskAttachments taskId={task.id} />
+
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}
             className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition">Cancel</button>

@@ -7,8 +7,10 @@ import ProjectList from './components/projects/ProjectList';
 import ProjectDetail from './components/projects/ProjectDetail';
 import MyTasks from './components/tasks/MyTasks';
 import ProfilePage from './components/profile/ProfilePage';
+import InstallPrompt from './components/ui/InstallPrompt';
+import Analytics from './components/analytics/Analytics';
 
-type View = 'dashboard' | 'projects' | 'project' | 'my-tasks' | 'profile';
+type View = 'dashboard' | 'projects' | 'project' | 'my-tasks' | 'profile' | 'analytics';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -46,6 +48,7 @@ function AppContent() {
           )}
           {view === 'my-tasks' && <MyTasks onNavigate={handleNavigate} />}
           {view === 'profile' && <ProfilePage />}
+          {view === 'analytics' && <Analytics />}
         </div>
       </main>
     </div>
@@ -56,6 +59,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <InstallPrompt />
     </AuthProvider>
   );
 }

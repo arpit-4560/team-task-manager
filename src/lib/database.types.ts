@@ -125,9 +125,33 @@ export type Project = Database['public']['Tables']['projects']['Row'];
 export type ProjectMember = Database['public']['Tables']['project_members']['Row'];
 export type Task = Database['public']['Tables']['tasks']['Row'];
 
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  uploaded_by: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  storage_path: string;
+  created_at: string;
+  uploader?: Profile;
+}
+
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type MemberRole = 'admin' | 'member';
+export type MemberRole = 'admin' | 'manager' | 'member';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'task_assigned' | 'task_overdue' | 'task_done' | 'member_added' | 'comment';
+  title: string;
+  message: string;
+  read: boolean;
+  link_project_id: string | null;
+  link_task_id: string | null;
+  created_at: string;
+}
 
 export interface ProjectMemberWithProfile extends ProjectMember {
   profiles: Profile;
